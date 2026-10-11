@@ -2,6 +2,7 @@
 
 use App\Enums\EventStatus;
 use App\Models\Event;
+use App\Models\Order;
 use App\Models\TicketType;
 use App\Models\User;
 use Livewire\Livewire;
@@ -195,6 +196,18 @@ test('organizers can delete their event', function () {
         ->assertRedirect(route('organizer.events.index'));
 
     expect(Event::count())->toBe(0);
+});
+
+test('events with orders cannot be deleted from the edit screen', function () {
+    $order = Order::factory()->canceled()->create();
+
+    $this->actingAs($order->event->organizer);
+
+    Livewire::test('pages::organizer.events.edit', ['event' => $order->event])
+        ->call('deleteEvent')
+        ->assertNoRedirect();
+
+    expect($order->event->fresh())->not->toBeNull();
 });
 
 test('organizers cannot mount the edit component of another organizer event', function () {

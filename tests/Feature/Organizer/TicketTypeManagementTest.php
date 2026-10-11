@@ -2,6 +2,7 @@
 
 use App\Enums\EventStatus;
 use App\Models\Event;
+use App\Models\OrderItem;
 use App\Models\TicketType;
 use App\Models\User;
 use Livewire\Livewire;
@@ -76,6 +77,18 @@ test('organizers can delete a ticket type', function () {
         ->call('deleteTicketType', $ticketType->id);
 
     expect(TicketType::count())->toBe(0);
+});
+
+test('ticket types with orders cannot be deleted from the edit screen', function () {
+    $item = OrderItem::factory()->create();
+    $event = $item->ticketType->event;
+
+    $this->actingAs($event->organizer);
+
+    Livewire::test('pages::organizer.events.edit', ['event' => $event])
+        ->call('deleteTicketType', $item->ticket_type_id);
+
+    expect($item->ticketType->fresh())->not->toBeNull();
 });
 
 test('the last ticket type of a published event cannot be deleted', function () {

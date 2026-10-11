@@ -101,6 +101,12 @@ new #[Title('イベント編集')] class extends Component {
     {
         $this->authorize('delete', $this->event);
 
+        if ($this->event->orders()->exists()) {
+            Flux::toast(variant: 'danger', text: '注文があるため、このイベントは削除できません。');
+
+            return;
+        }
+
         $this->event->delete();
 
         $this->redirectRoute('organizer.events.index', navigate: true);
@@ -194,6 +200,12 @@ new #[Title('イベント編集')] class extends Component {
         $this->authorize('update', $this->event);
 
         $ticketType = $this->event->ticketTypes()->findOrFail($ticketTypeId);
+
+        if ($ticketType->orderItems()->exists()) {
+            Flux::toast(variant: 'danger', text: '注文があるため、この券種は削除できません。');
+
+            return;
+        }
 
         if ($this->event->isPublished() && $this->event->ticketTypes()->count() === 1) {
             Flux::toast(variant: 'danger', text: '公開中のイベントは券種を0にできません。先に下書きに戻してください。');

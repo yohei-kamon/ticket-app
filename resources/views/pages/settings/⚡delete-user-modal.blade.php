@@ -19,7 +19,15 @@ new class extends Component {
             'password' => $this->currentPasswordRules(),
         ]);
 
-        tap(Auth::user(), $logout(...))->delete();
+        $user = Auth::user();
+
+        if ($user->events()->exists() || $user->orders()->exists()) {
+            $this->addError('password', 'イベントまたは注文があるため、アカウントを削除できません。');
+
+            return;
+        }
+
+        tap($user, $logout(...))->delete();
 
         $this->redirect('/', navigate: true);
     }

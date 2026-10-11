@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Event;
+use App\Models\Order;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -59,6 +61,23 @@ test('user can delete their account', function () {
     expect($user->fresh())->toBeNull();
     expect(auth()->check())->toBeFalse();
 });
+
+test('users with events or orders cannot delete their account', function (string $relation) {
+    $user = $relation === 'events'
+        ? Event::factory()->create()->organizer
+        : Order::factory()->create()->user;
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::settings.delete-user-modal')
+        ->set('password', 'password')
+        ->call('deleteUser')
+        ->assertHasErrors(['password'])
+        ->assertNoRedirect();
+
+    expect($user->fresh())->not->toBeNull();
+    expect(auth()->check())->toBeTrue();
+})->with(['events', 'orders']);
 
 test('correct password must be provided to delete account', function () {
     $user = User::factory()->create();
