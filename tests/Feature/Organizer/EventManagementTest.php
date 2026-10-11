@@ -2,6 +2,7 @@
 
 use App\Enums\EventStatus;
 use App\Models\Event;
+use App\Models\TicketType;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -148,6 +149,7 @@ test('changing methods are forbidden after ownership changes', function (string 
 
 test('organizers can toggle publish status', function () {
     $event = Event::factory()->create();
+    TicketType::factory()->for($event)->create();
 
     $this->actingAs($event->organizer);
 
