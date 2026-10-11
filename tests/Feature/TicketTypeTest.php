@@ -3,6 +3,7 @@
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\TicketType;
+use App\Services\OrderService;
 
 test('ticket types are on sale only within the sales period', function (string $state, bool $expected) {
     $ticketType = TicketType::factory()->{$state}()->create();
@@ -43,7 +44,7 @@ test('expired pending orders and canceled orders do not reserve tickets', functi
     OrderItem::factory()->for(Order::factory())->for($ticketType)->create(['quantity' => 2]);
     OrderItem::factory()->for(Order::factory()->canceled())->for($ticketType)->create(['quantity' => 4]);
 
-    $this->travel(TicketType::PENDING_MINUTES + 1)->minutes();
+    $this->travel(OrderService::PENDING_MINUTES + 1)->minutes();
 
     expect($ticketType->remaining())->toBe(10);
 });
@@ -60,7 +61,7 @@ test('a pending order created exactly 15 minutes ago still reserves tickets', fu
     $this->freezeTime();
 
     $ticketType = TicketType::factory()->create(['capacity' => 10]);
-    $order = Order::factory()->create(['created_at' => now()->subMinutes(TicketType::PENDING_MINUTES)]);
+    $order = Order::factory()->create(['created_at' => now()->subMinutes(OrderService::PENDING_MINUTES)]);
     OrderItem::factory()->for($order)->for($ticketType)->create(['quantity' => 3]);
 
     expect($ticketType->remaining())->toBe(7);
@@ -70,7 +71,7 @@ test('a pending order created 15 minutes and 1 second ago does not reserve ticke
     $this->freezeTime();
 
     $ticketType = TicketType::factory()->create(['capacity' => 10]);
-    $order = Order::factory()->create(['created_at' => now()->subMinutes(TicketType::PENDING_MINUTES)->subSecond()]);
+    $order = Order::factory()->create(['created_at' => now()->subMinutes(OrderService::PENDING_MINUTES)->subSecond()]);
     OrderItem::factory()->for($order)->for($ticketType)->create(['quantity' => 3]);
 
     expect($ticketType->remaining())->toBe(10);

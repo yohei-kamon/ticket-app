@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\OrderStatus;
+use App\Services\OrderService;
 use Database\Factories\TicketTypeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,11 +29,6 @@ class TicketType extends Model
 {
     /** @use HasFactory<TicketTypeFactory> */
     use HasFactory;
-
-    /**
-     * Minutes a pending order keeps its tickets reserved.
-     */
-    public const PENDING_MINUTES = 15;
 
     /**
      * Get the attributes that should be cast.
@@ -83,7 +79,7 @@ class TicketType extends Model
     /**
      * Get the number of tickets still available.
      *
-     * Paid orders and pending orders created within PENDING_MINUTES are counted as reserved.
+     * Paid orders and pending orders created within OrderService::PENDING_MINUTES are counted as reserved.
      */
     public function remaining(): int
     {
@@ -92,7 +88,7 @@ class TicketType extends Model
                 ->where('status', OrderStatus::Paid)
                 ->orWhere(fn (Builder $query) => $query
                     ->where('status', OrderStatus::Pending)
-                    ->where('created_at', '>=', now()->subMinutes(self::PENDING_MINUTES))))
+                    ->where('created_at', '>=', now()->subMinutes(OrderService::PENDING_MINUTES))))
             ->sum('quantity');
 
         return max(0, $this->capacity - $reserved);

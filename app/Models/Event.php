@@ -113,4 +113,12 @@ class Event extends Model
     {
         return $this->status === EventStatus::Published;
     }
+
+    /**
+     * Determine if tickets for the event can be bought (published and not started yet).
+     */
+    public function isPurchasable(): bool
+    {
+        return $this->isPublished() && $this->starts_at->isFuture();
+    }
 }

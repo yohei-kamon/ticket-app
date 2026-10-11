@@ -1,12 +1,20 @@
 <?php
 
 use App\Models\Event;
+use App\Services\OrderService;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('イベント詳細')] class extends Component {
     public Event $event;
+
+    /**
+     * Selected quantities keyed by ticket type ID.
+     *
+     * @var array<int, int|string>
+     */
+    public array $quantities = [];
 
     /**
      * Mount the component.
@@ -19,6 +27,32 @@ new #[Title('イベント詳細')] class extends Component {
         abort_unless(auth()->user()?->can('view', $event) ?? $event->isPublished(), 404);
 
         $this->event = $event->load(['organizer', 'ticketTypes' => fn ($query) => $query->orderBy('price')]);
+    }
+
+    /**
+     * Keep the selected quantities in the session and move on to the purchase page.
+     *
+     * The quantities are checked again when the order is created.
+     */
+    public function proceed(): void
+    {
+        abort_unless($this->event->isPurchasable(), 404);
+
+        $quantities = collect($this->quantities)
+            ->only($this->event->ticketTypes->modelKeys())
+            ->map(fn (int|string $quantity): int => (int) $quantity)
+            ->filter(fn (int $quantity): bool => $quantity > 0)
+            ->all();
+
+        if ($quantities === []) {
+            $this->addError('quantities', 'チケットの枚数を選んでください。');
+
+            return;
+        }
+
+        session()->put("purchase.{$this->event->id}", $quantities);
+
+        $this->redirectRoute('events.purchase', $this->event);
     }
 }; ?>
 
@@ -54,36 +88,60 @@ new #[Title('イベント詳細')] class extends Component {
         @if ($event->ticketTypes->isEmpty())
             <flux:text>券種はまだありません。</flux:text>
         @else
-            <div class="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-                @foreach ($event->ticketTypes as $ticketType)
-                    @php($remaining = $ticketType->remaining())
+            @php($hasPurchasableTicketType = false)
 
-                    <div class="flex flex-wrap items-center gap-4 p-4" wire:key="ticket-type-{{ $ticketType->id }}">
-                        <div class="min-w-0 flex-1 space-y-1">
-                            <flux:heading>{{ $ticketType->name }}</flux:heading>
-                            <flux:text size="sm">
-                                販売期間: {{ $ticketType->sales_starts_at->isoFormat('M月D日(ddd) HH:mm') }} 〜 {{ $ticketType->sales_ends_at->isoFormat('M月D日(ddd) HH:mm') }}
-                            </flux:text>
+            <form wire:submit="proceed" class="space-y-4">
+                <div class="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                    @foreach ($event->ticketTypes as $ticketType)
+                        @php($remaining = $ticketType->remaining())
+                        @php($maxQuantity = $event->isPurchasable() && $ticketType->isOnSale() ? min(OrderService::MAX_QUANTITY, $remaining) : 0)
+                        @php($hasPurchasableTicketType = $hasPurchasableTicketType || $maxQuantity > 0)
+
+                        <div class="flex flex-wrap items-center gap-4 p-4" wire:key="ticket-type-{{ $ticketType->id }}">
+                            <div class="min-w-0 flex-1 space-y-1">
+                                <flux:heading>{{ $ticketType->name }}</flux:heading>
+                                <flux:text size="sm">
+                                    販売期間: {{ $ticketType->sales_starts_at->isoFormat('M月D日(ddd) HH:mm') }} 〜 {{ $ticketType->sales_ends_at->isoFormat('M月D日(ddd) HH:mm') }}
+                                </flux:text>
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                @if ($remaining === 0)
+                                    <flux:badge color="red" size="sm">売り切れ</flux:badge>
+                                @else
+                                    <flux:text size="sm">残り {{ number_format($remaining) }}枚</flux:text>
+                                @endif
+
+                                @unless ($ticketType->isOnSale())
+                                    <flux:badge color="zinc" size="sm">販売期間外</flux:badge>
+                                @endunless
+
+                                <flux:heading>
+                                    {{ $ticketType->price === 0 ? '無料' : number_format($ticketType->price).'円' }}
+                                </flux:heading>
+
+                                @if ($maxQuantity > 0)
+                                    <div class="w-24">
+                                        <flux:select wire:model="quantities.{{ $ticketType->id }}" size="sm" aria-label="{{ $ticketType->name }}の枚数">
+                                            @foreach (range(0, $maxQuantity) as $quantity)
+                                                <flux:select.option :value="$quantity">{{ $quantity }}枚</flux:select.option>
+                                            @endforeach
+                                        </flux:select>
+                                    </div>
+                                @endif
+                            </div>
                         </div>
+                    @endforeach
+                </div>
 
-                        <div class="flex items-center gap-3">
-                            @if ($remaining === 0)
-                                <flux:badge color="red" size="sm">売り切れ</flux:badge>
-                            @else
-                                <flux:text size="sm">残り {{ number_format($remaining) }}枚</flux:text>
-                            @endif
+                @if ($hasPurchasableTicketType)
+                    <flux:error name="quantities" />
 
-                            @unless ($ticketType->isOnSale())
-                                <flux:badge color="zinc" size="sm">販売期間外</flux:badge>
-                            @endunless
-
-                            <flux:heading>
-                                {{ $ticketType->price === 0 ? '無料' : number_format($ticketType->price).'円' }}
-                            </flux:heading>
-                        </div>
+                    <div class="flex justify-end">
+                        <flux:button variant="primary" type="submit">購入手続きへ進む</flux:button>
                     </div>
-                @endforeach
-            </div>
+                @endif
+            </form>
         @endif
     </div>
 </section>
