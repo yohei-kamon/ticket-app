@@ -30,7 +30,7 @@ erDiagram
         string venue
         datetime starts_at
         datetime ends_at
-        string status "draft / published"
+        string status "draft / published / unpublished"
     }
     ticket_types {
         bigint id PK
@@ -85,8 +85,8 @@ erDiagram
 | description | text | NOT NULL | 説明 |
 | venue | string | NOT NULL | 会場 |
 | starts_at | datetime | NOT NULL, index | 開始日時。一覧の並び順と「開催済みを除く」判定に使う |
-| ends_at | datetime | NULL可 | 終了日時 |
-| status | string(20) | NOT NULL, default `draft` | `draft` / `published`。Enum `EventStatus` |
+| ends_at | datetime | NOT NULL | 終了日時。開始より後であることはバリデーションで確認する |
+| status | string(20) | NOT NULL, default `draft` | `draft`（下書き）/ `published`（公開）/ `unpublished`（管理者が非公開にした）。Enum `EventStatus`。unpublished は管理者だけが設定し、主催者は公開／下書きに切り替えられない（編集と削除はできる） |
 
 - インデックス: `(status, starts_at)`（公開イベント一覧の検索用）
 
