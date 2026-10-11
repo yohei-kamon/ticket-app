@@ -34,6 +34,15 @@ test('index lists only the organizer own events', function () {
         ->assertDontSee('他人のイベント');
 });
 
+test('index and edit screens link to the event detail page', function (string $routeName) {
+    $event = Event::factory()->create();
+
+    $this->actingAs($event->organizer)
+        ->get(route($routeName, $routeName === 'organizer.events.edit' ? $event : []))
+        ->assertOk()
+        ->assertSee(route('events.show', $event));
+})->with(['organizer.events.index', 'organizer.events.edit']);
+
 test('organizers can create an event as a draft', function () {
     $organizer = User::factory()->organizer()->create();
 

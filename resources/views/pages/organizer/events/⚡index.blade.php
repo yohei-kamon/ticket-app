@@ -52,6 +52,10 @@ new #[Title('イベント管理')] class extends Component {
                         {{ $event->status->label() }}
                     </flux:badge>
 
+                    <flux:button size="sm" icon="eye" :href="route('events.show', $event)" wire:navigate>
+                        詳細
+                    </flux:button>
+
                     <flux:button size="sm" icon="pencil-square" :href="route('organizer.events.edit', $event)" wire:navigate>
                         編集
                     </flux:button>

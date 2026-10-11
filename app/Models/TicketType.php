@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\OrderStatus;
 use Database\Factories\TicketTypeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -25,6 +28,11 @@ class TicketType extends Model
 {
     /** @use HasFactory<TicketTypeFactory> */
     use HasFactory;
+
+    /**
+     * Minutes a pending order keeps its tickets reserved.
+     */
+    public const PENDING_MINUTES = 15;
 
     /**
      * Get the attributes that should be cast.
@@ -52,6 +60,16 @@ class TicketType extends Model
     }
 
     /**
+     * Get the order items for the ticket type.
+     *
+     * @return HasMany<OrderItem, $this>
+     */
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    /**
      * Determine if the ticket type is within its sales period.
      */
     public function isOnSale(): bool
@@ -60,5 +78,23 @@ class TicketType extends Model
 
         return $now->greaterThanOrEqualTo($this->sales_starts_at)
             && $now->lessThan($this->sales_ends_at);
+    }
+
+    /**
+     * Get the number of tickets still available.
+     *
+     * Paid orders and pending orders created within PENDING_MINUTES are counted as reserved.
+     */
+    public function remaining(): int
+    {
+        $reserved = (int) $this->orderItems()
+            ->whereHas('order', fn (Builder $query) => $query
+                ->where('status', OrderStatus::Paid)
+                ->orWhere(fn (Builder $query) => $query
+                    ->where('status', OrderStatus::Pending)
+                    ->where('created_at', '>=', now()->subMinutes(self::PENDING_MINUTES))))
+            ->sum('quantity');
+
+        return max(0, $this->capacity - $reserved);
     }
 }

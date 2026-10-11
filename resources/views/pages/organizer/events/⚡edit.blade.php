@@ -232,15 +232,21 @@ new #[Title('イベント編集')] class extends Component {
             <flux:badge :color="$event->status->badgeColor()" size="sm">{{ $event->status->label() }}</flux:badge>
         </div>
 
-        @can('publish', $event)
-            <flux:button
-                wire:click="togglePublish"
-                :variant="$event->isPublished() ? 'filled' : 'primary'"
-                :disabled="! $event->isPublished() && $this->ticketTypes->isEmpty()"
-            >
-                {{ $event->isPublished() ? '下書きに戻す' : '公開する' }}
+        <div class="flex flex-wrap items-center gap-2">
+            <flux:button icon="eye" :href="route('events.show', $event)" wire:navigate>
+                詳細を見る
             </flux:button>
-        @endcan
+
+            @can('publish', $event)
+                <flux:button
+                    wire:click="togglePublish"
+                    :variant="$event->isPublished() ? 'filled' : 'primary'"
+                    :disabled="! $event->isPublished() && $this->ticketTypes->isEmpty()"
+                >
+                    {{ $event->isPublished() ? '下書きに戻す' : '公開する' }}
+                </flux:button>
+            @endcan
+        </div>
     </div>
 
     @cannot('publish', $event)
