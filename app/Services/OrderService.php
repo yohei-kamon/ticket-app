@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\OrderStatus;
 use App\Exceptions\PurchaseException;
 use App\Models\Event;
 use App\Models\Order;
@@ -65,6 +66,23 @@ class OrderService
 
             return $order;
         });
+    }
+
+    /**
+     * Cancel the order if it is still pending, releasing its reserved tickets.
+     *
+     * Orders that have already been paid are left untouched.
+     */
+    public function cancel(Order $order): bool
+    {
+        $canceled = Order::query()
+            ->whereKey($order->id)
+            ->where('status', OrderStatus::Pending)
+            ->update(['status' => OrderStatus::Canceled]) === 1;
+
+        $order->refresh();
+
+        return $canceled;
     }
 
     /**
