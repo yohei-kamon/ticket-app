@@ -6,16 +6,21 @@ use App\Enums\OrderStatus;
 use App\Exceptions\PurchaseException;
 use App\Models\Event;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class OrderService
 {
     /**
      * Minutes a pending order keeps its tickets reserved.
+     *
+     * Longer than the Stripe payment page stays open, with a margin for creating the session
+     * and for the webhook or the completion page to confirm a payment made at the last moment.
      */
-    public const PENDING_MINUTES = 15;
+    public const PENDING_MINUTES = CheckoutService::EXPIRES_MINUTES + 5;
 
     /**
      * Maximum number of tickets per ticket type in one order.
@@ -83,6 +88,38 @@ class OrderService
         $order->refresh();
 
         return $canceled;
+    }
+
+    /**
+     * Mark the order as paid if it is still pending and issue one ticket per purchased seat.
+     *
+     * The status is changed with a conditional update so that the webhook and the completion
+     * page can both call this safely. Returns false when the order was already processed.
+     *
+     * The payment intent ID is not stored yet; it will be kept for refunds.
+     */
+    public function markAsPaid(Order $order, ?string $paymentIntentId = null): bool
+    {
+        $paid = DB::transaction(function () use ($order): bool {
+            $updated = Order::query()
+                ->whereKey($order->id)
+                ->where('status', OrderStatus::Pending)
+                ->update(['status' => OrderStatus::Paid, 'paid_at' => now()]) === 1;
+
+            if (! $updated) {
+                return false;
+            }
+
+            $order->items()->get()->each(fn (OrderItem $item) => $item->tickets()->createMany(
+                collect(range(1, $item->quantity))->map(fn (): array => ['code' => (string) Str::uuid()])->all(),
+            ));
+
+            return true;
+        });
+
+        $order->refresh();
+
+        return $paid;
     }
 
     /**

@@ -61,7 +61,7 @@ new #[Title('購入手続き')] class extends Component {
     /**
      * Create the order and send the user to the Stripe payment page.
      *
-     * Free orders skip Stripe and go straight to the completion page.
+     * Free orders skip Stripe, are paid at once and go straight to the completion page.
      */
     public function checkout(OrderService $orderService, CheckoutService $checkoutService): void
     {
@@ -76,6 +76,7 @@ new #[Title('購入手続き')] class extends Component {
         session()->forget("purchase.{$this->event->id}");
 
         if ($order->total_amount === 0) {
+            $orderService->markAsPaid($order);
             $this->redirectRoute('orders.complete', $order, navigate: true);
 
             return;

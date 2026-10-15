@@ -82,3 +82,27 @@ test('orders are not created for invalid quantities', function (Closure $makeQua
     'not an integer' => [fn (TicketType $ticketType) => [$ticketType->id => 'abc'], '「一般」は1〜10枚の範囲で選んでください。'],
     'a ticket type of another event' => [fn (TicketType $ticketType) => [TicketType::factory()->create()->id => 1], '選択した券種が見つかりません。'],
 ]);
+
+test('paying an order marks it as paid and issues one ticket per seat', function () {
+    $order = Order::factory()->create();
+    OrderItem::factory()->for($order)->create(['quantity' => 2]);
+    OrderItem::factory()->for($order)->create(['quantity' => 1]);
+
+    expect(app(OrderService::class)->markAsPaid($order))->toBeTrue()
+        ->and($order->status)->toBe(OrderStatus::Paid)
+        ->and($order->paid_at)->not->toBeNull()
+        ->and($order->tickets()->count())->toBe(3)
+        ->and($order->tickets()->distinct()->count('code'))->toBe(3);
+});
+
+test('orders that are no longer pending are not paid again', function (Closure $makeOrder, OrderStatus $status) {
+    $order = $makeOrder();
+    OrderItem::factory()->for($order)->create(['quantity' => 2]);
+
+    expect(app(OrderService::class)->markAsPaid($order))->toBeFalse()
+        ->and($order->status)->toBe($status)
+        ->and($order->tickets()->count())->toBe(0);
+})->with([
+    'paid' => [fn () => Order::factory()->paid()->create(), OrderStatus::Paid],
+    'canceled' => [fn () => Order::factory()->canceled()->create(), OrderStatus::Canceled],
+]);

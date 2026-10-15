@@ -130,7 +130,7 @@ erDiagram
 | カラム | 型 | 制約 | 説明 |
 |-|-|-|-|
 | order_item_id | foreignId → order_items.id | NOT NULL, cascade | どの明細から発行されたか |
-| code | string(32) | NOT NULL, unique | チケットごとの固有コード。推測されにくいランダムな文字列（例: `Str::random(16)`） |
+| code | string(36) | NOT NULL, unique | チケットごとの固有コード。推測されにくい UUID（`Str::uuid()`） |
 
 <br>
 

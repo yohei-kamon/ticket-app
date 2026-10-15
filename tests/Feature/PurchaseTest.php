@@ -134,7 +134,8 @@ test('free orders skip Stripe and move on to the completion page', function () {
 
     $component->assertHasNoErrors()->assertRedirect(route('orders.complete', $order));
 
-    expect($order->status)->toBe(OrderStatus::Pending);
+    expect($order->status)->toBe(OrderStatus::Paid)
+        ->and($order->tickets()->count())->toBe(1);
 });
 
 test('the order is canceled when the Stripe payment page cannot be created', function () {
@@ -184,7 +185,7 @@ test('the completion page can be opened only by those allowed to view the order'
     $this->actingAs($order->user)
         ->get(route('orders.complete', $order))
         ->assertOk()
-        ->assertSee('注文を受け付けました（支払いは平日課題で実装）');
+        ->assertSee('支払いを確認中です');
 
     $this->actingAs(User::factory()->create())
         ->get(route('orders.complete', $order))
