@@ -1,46 +1,14 @@
 <?php
 
 use App\Enums\OrderStatus;
+use App\Mail\OrderPaidMail;
 use App\Models\Order;
 use App\Models\OrderItem;
-use Illuminate\Testing\TestResponse;
+use Illuminate\Support\Facades\Mail;
 
 beforeEach(function () {
     config(['services.stripe.webhook_secret' => 'whsec_test']);
 });
-
-/**
- * Send a checkout.session.completed webhook for the order, signed with the given secret.
- */
-function sendCheckoutCompletedWebhook(
-    Order $order,
-    string $secret = 'whsec_test',
-    string $type = 'checkout.session.completed',
-    string $paymentStatus = 'paid',
-    ?string $orderId = null,
-): TestResponse {
-    $payload = json_encode([
-        'id' => 'evt_test',
-        'object' => 'event',
-        'type' => $type,
-        'data' => [
-            'object' => [
-                'id' => 'cs_test',
-                'object' => 'checkout.session',
-                'payment_status' => $paymentStatus,
-                'payment_intent' => 'pi_test',
-                'metadata' => ['order_id' => $orderId ?? (string) $order->id],
-            ],
-        ],
-    ]);
-    $timestamp = time();
-    $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret);
-
-    return test()->call('POST', route('stripe.webhook'), server: [
-        'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
-        'CONTENT_TYPE' => 'application/json',
-    ], content: $payload);
-}
 
 /**
  * Create a pending order with three seats in total.
@@ -83,6 +51,27 @@ test('the same webhook sent twice does not issue tickets twice', function () {
 
     expect($order->fresh()->status)->toBe(OrderStatus::Paid)
         ->and($order->tickets()->count())->toBe(3);
+});
+
+test('a webhook that marks the order as paid sends one purchase mail to the buyer', function () {
+    Mail::fake();
+    $order = pendingOrderWithThreeSeats();
+
+    sendCheckoutCompletedWebhook($order)->assertOk();
+    sendCheckoutCompletedWebhook($order)->assertOk();
+
+    Mail::assertSentCount(1);
+    Mail::assertSent(OrderPaidMail::class, fn (OrderPaidMail $mail): bool => $mail->hasTo($order->user->email)
+        && $mail->order->is($order));
+});
+
+test('a webhook that does not mark the order as paid sends no mail', function () {
+    Mail::fake();
+    $order = pendingOrderWithThreeSeats();
+
+    sendCheckoutCompletedWebhook($order, paymentStatus: 'unpaid')->assertOk();
+
+    Mail::assertNothingSent();
 });
 
 test('webhooks without a signature header are rejected', function () {

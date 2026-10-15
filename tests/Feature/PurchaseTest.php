@@ -2,12 +2,14 @@
 
 use App\Enums\EventStatus;
 use App\Enums\OrderStatus;
+use App\Mail\OrderPaidMail;
 use App\Models\Event;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\TicketType;
 use App\Models\User;
 use App\Services\CheckoutService;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Stripe\Exception\ApiConnectionException;
@@ -120,6 +122,7 @@ test('checking out creates a pending order and redirects to the Stripe payment p
 });
 
 test('free orders skip Stripe and move on to the completion page', function () {
+    Mail::fake();
     $event = Event::factory()->published()->create();
     $ticketType = TicketType::factory()->for($event)->create(['price' => 0]);
     session()->put("purchase.{$event->id}", [$ticketType->id => 1]);
@@ -136,6 +139,7 @@ test('free orders skip Stripe and move on to the completion page', function () {
 
     expect($order->status)->toBe(OrderStatus::Paid)
         ->and($order->tickets()->count())->toBe(1);
+    Mail::assertSent(OrderPaidMail::class, fn (OrderPaidMail $mail): bool => $mail->order->is($order));
 });
 
 test('the order is canceled when the Stripe payment page cannot be created', function () {

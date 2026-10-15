@@ -14,6 +14,8 @@ Route::middleware('auth')->group(function () {
     Route::livewire('events/{event}/purchase', 'pages::events.purchase')->name('events.purchase');
     Route::livewire('orders/{order}/complete', 'pages::orders.complete')->name('orders.complete');
     Route::livewire('orders/{order}/cancel', 'pages::orders.cancel')->name('orders.cancel');
+    Route::livewire('my/orders', 'pages::my.orders.index')->name('my.orders.index');
+    Route::livewire('my/orders/{order}', 'pages::my.orders.show')->name('my.orders.show');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

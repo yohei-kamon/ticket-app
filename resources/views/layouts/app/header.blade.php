@@ -15,7 +15,7 @@
                 </flux:navbar.item>
 
                 @auth
-                    <flux:navbar.item icon="ticket" href="/my/orders" :current="request()->is('my/orders*')" wire:navigate>
+                    <flux:navbar.item icon="ticket" :href="route('my.orders.index')" :current="request()->routeIs('my.orders.*')" wire:navigate>
                         マイチケット
                     </flux:navbar.item>
 
@@ -65,7 +65,7 @@
                 </flux:sidebar.item>
 
                 @auth
-                    <flux:sidebar.item icon="ticket" href="/my/orders" :current="request()->is('my/orders*')" wire:navigate>
+                    <flux:sidebar.item icon="ticket" :href="route('my.orders.index')" :current="request()->routeIs('my.orders.*')" wire:navigate>
                         マイチケット
                     </flux:sidebar.item>
 

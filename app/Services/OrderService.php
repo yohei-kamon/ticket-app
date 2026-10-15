@@ -4,13 +4,16 @@ namespace App\Services;
 
 use App\Enums\OrderStatus;
 use App\Exceptions\PurchaseException;
+use App\Mail\OrderPaidMail;
 use App\Models\Event;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Throwable;
 
 class OrderService
 {
@@ -119,7 +122,26 @@ class OrderService
 
         $order->refresh();
 
+        if ($paid) {
+            $this->sendPaidMail($order);
+        }
+
         return $paid;
+    }
+
+    /**
+     * Send the purchase confirmation to the buyer.
+     *
+     * A failure is only reported so that the payment, which is already recorded, is not rolled back
+     * and the webhook is still acknowledged.
+     */
+    private function sendPaidMail(Order $order): void
+    {
+        try {
+            Mail::to($order->user)->send(new OrderPaidMail($order));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**
