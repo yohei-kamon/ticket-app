@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /*
@@ -47,4 +49,37 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Send a checkout.session.completed webhook for the order, signed with the given secret.
+ */
+function sendCheckoutCompletedWebhook(
+    Order $order,
+    string $secret = 'whsec_test',
+    string $type = 'checkout.session.completed',
+    string $paymentStatus = 'paid',
+    ?string $orderId = null,
+): TestResponse {
+    $payload = json_encode([
+        'id' => 'evt_test',
+        'object' => 'event',
+        'type' => $type,
+        'data' => [
+            'object' => [
+                'id' => 'cs_test',
+                'object' => 'checkout.session',
+                'payment_status' => $paymentStatus,
+                'payment_intent' => 'pi_test',
+                'metadata' => ['order_id' => $orderId ?? (string) $order->id],
+            ],
+        ],
+    ]);
+    $timestamp = time();
+    $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret);
+
+    return test()->call('POST', route('stripe.webhook'), server: [
+        'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
+        'CONTENT_TYPE' => 'application/json',
+    ], content: $payload);
 }

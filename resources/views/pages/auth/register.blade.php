@@ -54,6 +54,17 @@
                 viewable
             />
 
+            <!-- Role -->
+            <flux:radio.group name="role" label="利用区分" error:name="role">
+                @foreach (\App\Enums\UserRole::selfRegisterable() as $role)
+                    <flux:radio
+                        :value="$role->value"
+                        :label="$role->label()"
+                        :checked="old('role', \App\Enums\UserRole::Customer->value) === $role->value"
+                    />
+                @endforeach
+            </flux:radio.group>
+
             <div class="flex items-center justify-end">
                 <flux:button type="submit" variant="primary" class="w-full" data-test="register-user-button">
                     {{ __('Create account') }}
